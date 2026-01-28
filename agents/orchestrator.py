@@ -1,7 +1,3 @@
-"""
-Agent 1: Conversational Orchestrator & Intelligence Hub
-Master agent that understands intent, routes queries, and manages conversation
-"""
 import sys
 import re
 import time
@@ -35,11 +31,6 @@ class ConversationalOrchestrator:
     - Route to appropriate agents
     - Manage session state
     - Format responses
-    
-    Key Insight: "Fetch once, query many times"
-    - NEW_SEARCH: Agent 2 → Agent 3 → Agent 4 (~3.5s)
-    - REFINE_SEARCH: Agent 3 → Agent 4 (~300ms - use cache!)
-    - QUESTION/COMPARISON: Agent 3 → Agent 4 (~700ms)
     """
     
     def __init__(self):
@@ -51,7 +42,6 @@ class ConversationalOrchestrator:
         self._wants_other_options = False  # Track when user wants different restaurants
     
     def initialize(self, session_id: str = None) -> 'ConversationalOrchestrator':
-        """Initialize all agents and session."""
         print(" Initializing Conversational Orchestrator...")
         
         # Initialize sub-agents
@@ -78,24 +68,13 @@ class ConversationalOrchestrator:
         return self
     
     def classify_intent(self, query: str) -> IntentResult:
-        """
-        Classify user intent and extract constraints.
         
-        Returns IntentResult with:
-        - intent: IntentType (NEW_SEARCH, REFINE_SEARCH, etc.)
-        - route: AgentRoute (FULL_PIPELINE, CACHED_FILTER, etc.)
-        - constraints: Extracted constraints
-        - priorities: Inferred priorities
-        """
         query_lower = query.lower()
         
-        # Quick pattern matching first (faster than LLM)
-        intent, route = self._quick_classify(query_lower)
+        intent, route = self.quick_classify(query_lower)
         
-        # Extract constraints
-        constraints = self._extract_constraints(query)
+        constraints = self.extract_constraints(query)
         
-        # Determine if we need new data or can use cache
         if intent == IntentType.NEW_SEARCH:
             if self.session.needs_new_fetch(constraints):
                 route = AgentRoute.FULL_PIPELINE
@@ -104,10 +83,10 @@ class ConversationalOrchestrator:
                 route = AgentRoute.CACHED_FILTER
         
         # Infer priorities
-        priorities = self._infer_priorities(query, intent)
+        priorities = self.infer_priorities(query, intent)
         
         # Extract references (for QUESTION/COMPARISON)
-        reference = self._extract_reference(query_lower)
+        reference = self.extract_reference(query_lower)
         
         return IntentResult(
             intent=intent,
@@ -118,9 +97,7 @@ class ConversationalOrchestrator:
             reference=reference
         )
     
-    def _quick_classify(self, query_lower: str) -> tuple:
-        """Quick pattern-based classification."""
-        
+    def quick_classify(self, query_lower: str) -> tuple:        
         # COMPARISON patterns
         comparison_patterns = [
             r'compare\s+', r'vs\s+', r'versus\s+',
@@ -149,7 +126,6 @@ class ConversationalOrchestrator:
             r'give\s+me\s+more', r'show\s+more', r'any\s+other'
         ]
         if any(re.search(p, query_lower) for p in other_options_patterns):
-            # Mark that we want to exclude already shown restaurants
             self._wants_other_options = True
             return IntentType.NEW_SEARCH, AgentRoute.FULL_PIPELINE
         
@@ -165,7 +141,6 @@ class ConversationalOrchestrator:
             if any(re.search(p, query_lower) for p in refinement_patterns):
                 return IntentType.REFINE_SEARCH, AgentRoute.CACHED_FILTER
         
-        # CLARIFICATION needed patterns
         if len(query_lower.split()) < 3 and not any(
             w in query_lower for w in ['restaurant', 'food', 'eat', 'dinner', 'lunch']
         ):
@@ -175,19 +150,16 @@ class ConversationalOrchestrator:
         self._wants_other_options = False
         return IntentType.NEW_SEARCH, AgentRoute.FULL_PIPELINE
     
-    def _extract_constraints(self, query: str) -> Constraints:
-        """Extract constraints from natural language query."""
+    def extract_constraints(self, query: str) -> Constraints:
         query_lower = query.lower()
         constraints = Constraints()
         
-        # Location extraction
         known_locations = self.sql_builder.get_known_locations() if self.sql_builder else []
         for loc in known_locations:
             if loc.lower() in query_lower:
                 constraints.location = loc
                 break
         
-        # Also try fuzzy matching for misspellings
         if not constraints.location and self.sql_builder:
             # Common location mentions
             location_patterns = [
@@ -294,7 +266,7 @@ class ConversationalOrchestrator:
         
         return constraints
     
-    def _infer_priorities(self, query: str, intent: IntentType) -> Priorities:
+    def infer_priorities(self, query: str, intent: IntentType) -> Priorities:
         """Infer user priorities from query and intent."""
         query_lower = query.lower()
         priorities = Priorities()
@@ -323,7 +295,7 @@ class ConversationalOrchestrator:
         
         return priorities
     
-    def _extract_reference(self, query_lower: str) -> Optional[str]:
+    def extract_reference(self, query_lower: str) -> Optional[str]:
         """Extract restaurant reference from query."""
         # Positional references
         position_map = {
@@ -345,7 +317,7 @@ class ConversationalOrchestrator:
         
         return None
     
-    def _route_to_agents(self, intent_result: IntentResult) -> Dict:
+    def route_to_agents(self, intent_result: IntentResult) -> Dict:
         """Route query to appropriate agents and get results."""
         route = intent_result.route
         constraints = intent_result.constraints
@@ -357,15 +329,15 @@ class ConversationalOrchestrator:
         
         if route == AgentRoute.FULL_PIPELINE:
             # Full pipeline: Agent 2 → Agent 3 → Agent 4
-            result = self._full_pipeline(constraints, priorities, intent)
+            result = self.full_pipeline(constraints, priorities, intent)
             
         elif route == AgentRoute.CACHED_FILTER:
             # Use cache: Agent 3 → Agent 4
-            result = self._cached_filter_pipeline(constraints, priorities, intent)
+            result = self.cached_filter_pipeline(constraints, priorities, intent)
             
         elif route == AgentRoute.CACHED_RETRIEVE:
             # Retrieve specific: Agent 3 → Agent 4
-            result = self._cached_retrieve_pipeline(intent_result)
+            result = self.cached_retrieve_pipeline(intent_result)
             
         elif route == AgentRoute.CLARIFY:
             result = {'needs_clarification': True}
@@ -375,12 +347,7 @@ class ConversationalOrchestrator:
         
         return result
     
-    def _full_pipeline(
-        self, 
-        constraints: Constraints, 
-        priorities: Priorities,
-        intent: IntentType
-    ) -> Dict:
+    def full_pipeline(self, constraints: Constraints, priorities: Priorities, intent: IntentType) -> Dict:
         """Full pipeline: Database fetch -> Index -> Rank."""
         print(f" Full pipeline: NEW_SEARCH")
         
@@ -437,13 +404,7 @@ class ConversationalOrchestrator:
             'reasoning': ranking_result.reasoning
         }
     
-    def _cached_filter_pipeline(
-        self,
-        constraints: Constraints,
-        priorities: Priorities,
-        intent: IntentType
-    ) -> Dict:
-        """Cached filter pipeline: Filter in-memory → Rank."""
+    def cached_filter_pipeline(self, constraints: Constraints, priorities: Priorities, intent: IntentType) -> Dict:
         print(f" Cached pipeline: REFINE_SEARCH (using {len(self.session.cached_restaurants)} cached)")
         
         # Step 1: Filter cached restaurants (Agent 3)
@@ -489,13 +450,13 @@ class ConversationalOrchestrator:
             'reasoning': ranking_result.reasoning
         }
     
-    def _cached_retrieve_pipeline(self, intent_result: IntentResult) -> Dict:
+    def cached_retrieve_pipeline(self, intent_result: IntentResult) -> Dict:
         """Cached retrieve pipeline: Get specific restaurant(s)."""
         intent = intent_result.intent
         reference = intent_result.reference
         
         if intent == IntentType.COMPARISON:
-            return self._handle_comparison(intent_result)
+            return self.handle_comparison(intent_result)
         
         # Get referenced restaurant
         if reference:
@@ -537,7 +498,7 @@ class ConversationalOrchestrator:
             'message': 'Which restaurant would you like to know more about?'
         }
     
-    def _handle_comparison(self, intent_result: IntentResult) -> Dict:
+    def handle_comparison(self, intent_result: IntentResult) -> Dict:
         """Handle comparison between restaurants."""
         # Try to extract two restaurant references
         query_lower = intent_result.constraints.occasion or ""  # Hacky but works
@@ -569,7 +530,7 @@ class ConversationalOrchestrator:
         
         # Handle clarification
         if result.get('needs_clarification'):
-            return self._generate_clarification_question(intent_result.constraints)
+            return self.generate_clarification_question(intent_result.constraints)
         
         # Handle comparison
         if result.get('is_comparison'):
@@ -577,12 +538,12 @@ class ConversationalOrchestrator:
         
         # Handle detail request
         if result.get('is_detail'):
-            return self._format_restaurant_detail(recommendations[0])
+            return self.format_restaurant_detail(recommendations[0])
         
         # Handle regular recommendations
-        return self._format_recommendations(result, intent_result)
+        return self.format_recommendations(result, intent_result)
     
-    def _format_recommendations(self, result: Dict, intent_result: IntentResult) -> str:
+    def format_recommendations(self, result: Dict, intent_result: IntentResult) -> str:
         """Format recommendation list."""
         recommendations = result['recommendations']
         timing = result.get('timing_ms', 0)
@@ -617,11 +578,11 @@ class ConversationalOrchestrator:
         
         # Follow-up suggestions
         lines.append("\n---")
-        lines.append(self._generate_followup_suggestions(result, intent_result.constraints))
+        lines.append(self.generate_followup_suggestions(result, intent_result.constraints))
         
         return '\n'.join(lines)
     
-    def _format_restaurant_detail(self, rec: RankedRestaurant) -> str:
+    def format_restaurant_detail(self, rec: RankedRestaurant) -> str:
         """Format detailed restaurant info."""
         r = rec.restaurant
         
@@ -660,7 +621,7 @@ class ConversationalOrchestrator:
         
         return '\n'.join([l for l in lines if l])
     
-    def _generate_clarification_question(self, constraints: Constraints) -> str:
+    def generate_clarification_question(self, constraints: Constraints) -> str:
         """Generate clarifying question."""
         if not constraints.location:
             return "Which area of Bangalore are you looking for? (e.g., Koramangala, Indiranagar)"
@@ -670,7 +631,7 @@ class ConversationalOrchestrator:
             return "What's your budget for two? (e.g., under ₹1000)"
         return "Could you tell me more about what you're looking for?"
     
-    def _generate_followup_suggestions(self, result: Dict, constraints: Constraints) -> str:
+    def generate_followup_suggestions(self, result: Dict, constraints: Constraints) -> str:
         """Generate proactive suggestions."""
         suggestions = []
         
@@ -707,7 +668,7 @@ class ConversationalOrchestrator:
         print(f"\n Intent: {intent_result.intent.value} → Route: {intent_result.route.value}")
         
         # Step 2: Route to agents
-        result = self._route_to_agents(intent_result)
+        result = self.route_to_agents(intent_result)
         
         # Step 3: Format response
         response = self.format_response(result, intent_result)
