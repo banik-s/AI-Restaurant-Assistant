@@ -1,7 +1,3 @@
-"""
-Agent 4: Context Analysis, Ranking & Recommendation Engine
-Intelligent ranking using sentiment analysis and explained recommendations
-"""
 import sys
 import time
 from pathlib import Path
@@ -53,24 +49,14 @@ class RankingEngine:
         print(" Ranking Engine ready!")
         return self
     
-    def analyze_restaurants(
-        self, 
-        restaurants: List[Restaurant]
-    ) -> Dict[int, ScoredRestaurant]:
-        """
-        Run sentiment analysis on all restaurants.
+    def analyze_restaurants(self, restaurants: List[Restaurant]) -> Dict[int, ScoredRestaurant]:
         
-        Returns:
-            Dict mapping restaurant_id to ScoredRestaurant
-        """
         scored = {}
         
         for restaurant in restaurants:
-            # Analyze reviews if available
             if restaurant.reviews_list:
                 analysis = self.sentiment_analyzer.analyze_reviews(restaurant.reviews_list)
             else:
-                # Use rating-based estimate if no reviews
                 analysis = {
                     'sentiment_score': restaurant.rating / 5.0,
                     'food_quality_score': restaurant.rating / 5.0,
@@ -96,18 +82,8 @@ class RankingEngine:
         
         return scored
     
-    def calculate_score(
-        self,
-        scored_restaurant: ScoredRestaurant,
-        intent: IntentType,
-        priorities: Priorities
-    ) -> Tuple[float, str]:
-        """
-        Calculate final score based on intent and priorities.
+    def calculate_score(self, scored_restaurant: ScoredRestaurant, intent: IntentType, priorities: Priorities) -> Tuple[float, str]:
         
-        Returns:
-            Tuple of (final_score, reason)
-        """
         r = scored_restaurant.restaurant
         s = scored_restaurant
         
@@ -178,20 +154,8 @@ class RankingEngine:
         
         return final_score, reason
     
-    def rank(
-        self,
-        restaurants: List[Restaurant],
-        scored: Dict[int, ScoredRestaurant],
-        intent: IntentType,
-        priorities: Priorities,
-        top_k: int = 5
-    ) -> List[RankedRestaurant]:
-        """
-        Rank restaurants and return top K.
+    def rank(self, restaurants: List[Restaurant], scored: Dict[int, ScoredRestaurant], intent: IntentType, priorities: Priorities, top_k: int = 5) -> List[RankedRestaurant]:
         
-        Returns:
-            List of RankedRestaurant sorted by score
-        """
         results = []
         
         for restaurant in restaurants:
@@ -235,17 +199,9 @@ class RankingEngine:
         
         return ranked
     
-    def generate_explanation(
-        self,
-        ranked: RankedRestaurant,
-        intent: IntentType,
-        priorities: Priorities
-    ) -> str:
-        """
-        Generate natural language explanation for a recommendation.
-        """
+    def generate_explanation(self, ranked: RankedRestaurant, intent: IntentType, priorities: Priorities) -> str:
         if not self.llm_client:
-            return self._fallback_explanation(ranked)
+            return self.fallback_explanation(ranked)
         
         r = ranked.restaurant
         
@@ -290,10 +246,9 @@ class RankingEngine:
             return response.choices[0].message.content.strip()
         except Exception as e:
             print(f" LLM error: {e}")
-            return self._fallback_explanation(ranked)
+            return self.fallback_explanation(ranked)
     
-    def _fallback_explanation(self, ranked: RankedRestaurant) -> str:
-        """Generate explanation without LLM."""
+    def fallback_explanation(self, ranked: RankedRestaurant) -> str:
         r = ranked.restaurant
         
         parts = [
@@ -313,32 +268,16 @@ class RankingEngine:
         
         return " ".join(parts)
     
-    def generate_explanations(
-        self,
-        ranked_list: List[RankedRestaurant],
-        intent: IntentType,
-        priorities: Priorities,
-        generate_llm: bool = True
-    ) -> List[RankedRestaurant]:
-        """
-        Generate explanations for all ranked restaurants.
-        
-        Args:
-            generate_llm: If True, use LLM for top 3 only (to save API calls)
-        """
+    def generate_explanations(self, ranked_list: List[RankedRestaurant], intent: IntentType, priorities: Priorities, generate_llm: bool = True) -> List[RankedRestaurant]:
         for i, ranked in enumerate(ranked_list):
             if generate_llm and i < 3 and self.llm_client:
                 ranked.explanation = self.generate_explanation(ranked, intent, priorities)
             else:
-                ranked.explanation = self._fallback_explanation(ranked)
+                ranked.explanation = self.fallback_explanation(ranked)
         
         return ranked_list
     
-    def generate_comparison(
-        self,
-        restaurant_a: RankedRestaurant,
-        restaurant_b: RankedRestaurant
-    ) -> str:
+    def generate_comparison(self, restaurant_a: RankedRestaurant, restaurant_b: RankedRestaurant) -> str:
         """Generate side-by-side comparison of two restaurants."""
         a, b = restaurant_a.restaurant, restaurant_b.restaurant
         sa, sb = restaurant_a.scores, restaurant_b.scores
@@ -372,27 +311,7 @@ class RankingEngine:
         
         return "\n".join(lines)
     
-    def process(
-        self,
-        restaurants: List[Restaurant],
-        intent: IntentType,
-        priorities: Priorities,
-        top_k: int = 5,
-        generate_llm_explanations: bool = True
-    ) -> RankingResult:
-        """
-        Full ranking pipeline.
-        
-        Args:
-            restaurants: List of restaurants to rank
-            intent: User's intent type
-            priorities: User's priorities
-            top_k: Number of top results
-            generate_llm_explanations: Whether to use LLM for explanations
-            
-        Returns:
-            RankingResult with recommendations
-        """
+    def process(self, restaurants: List[Restaurant], intent: IntentType, priorities: Priorities, top_k: int = 5, generate_llm_explanations: bool = True) -> RankingResult:
         start_time = time.time()
         
         if not restaurants:
@@ -436,10 +355,6 @@ from typing import Tuple
 
 # Test function  
 def test_ranking_engine():
-    """Test the ranking engine."""
-    print("\n" + "=" * 60)
-    print("TESTING RANKING ENGINE")
-    print("=" * 60)
     
     engine = RankingEngine()
     engine.initialize()

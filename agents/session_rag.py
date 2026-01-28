@@ -1,7 +1,3 @@
-"""
-Agent 3: Session-Scoped RAG & Vector Search Agent
-Creates temporary vector index from fetched data and enables semantic search over ONLY session restaurants
-"""
 import sys
 import time
 from pathlib import Path
@@ -37,24 +33,17 @@ class SessionRAG:
         self._session_embeddings: Dict[str, Dict[int, List[float]]] = {}
     
     def initialize(self):
-        """Initialize embedding model."""
         print(" Initializing Session RAG...")
-        self._load_embedding_model()
+        self.load_embedding_model()
         print(" Session RAG ready!")
         return self
     
-    def _load_embedding_model(self):
-        """Load the sentence-transformers embedding model."""
+    def load_embedding_model(self):
         from sentence_transformers import SentenceTransformer
         print(f"   Loading embedding model: {EMBEDDING_MODEL_NAME}")
         self.embedding_model = SentenceTransformer(EMBEDDING_MODEL_NAME)
     
-    def _build_restaurant_text(self, restaurant: Restaurant) -> str:
-        """
-        Build rich text representation for embedding.
-        
-        Includes all semantic information for better matching.
-        """
+    def build_restaurant_text(self, restaurant: Restaurant) -> str:
         parts = [
             f"Restaurant: {restaurant.name}",
             f"Location: {restaurant.location}",
@@ -79,21 +68,8 @@ class SessionRAG:
         
         return ". ".join([p for p in parts if p])
     
-    def index_restaurants(
-        self, 
-        restaurants: List[Restaurant], 
-        session_id: str
-    ) -> float:
-        """
-        Create embeddings for session restaurants.
+    def index_restaurants(self, restaurants: List[Restaurant], session_id: str) -> float:
         
-        Args:
-            restaurants: List of restaurants to index
-            session_id: Unique session identifier
-            
-        Returns:
-            Time taken in milliseconds
-        """
         start_time = time.time()
         
         if not restaurants:
@@ -101,10 +77,8 @@ class SessionRAG:
         
         print(f" Indexing {len(restaurants)} restaurants for session {session_id[:8]}...")
         
-        # Build text representations
-        texts = [self._build_restaurant_text(r) for r in restaurants]
+        texts = [self.build_restaurant_text(r) for r in restaurants]
         
-        # Generate embeddings
         embeddings = self.embedding_model.encode(texts)
         
         # Store in session data
@@ -118,23 +92,7 @@ class SessionRAG:
         
         return elapsed_ms
     
-    def semantic_search(
-        self, 
-        query: str, 
-        session_id: str, 
-        top_k: int = 10
-    ) -> RAGSearchResult:
-        """
-        Semantic search within session restaurants.
-        
-        Args:
-            query: User's semantic query
-            session_id: Session to search in
-            top_k: Number of results
-            
-        Returns:
-            RAGSearchResult with matched restaurants and scores
-        """
+    def semantic_search(self, query: str, session_id: str, top_k: int = 10) -> RAGSearchResult:
         if session_id not in self._session_restaurants:
             return RAGSearchResult(
                 restaurants=[],
@@ -165,7 +123,6 @@ class SessionRAG:
             doc_embedding = np.array(embeddings[restaurant.id])
             query_emb = np.array(query_embedding)
             
-            # Cosine similarity
             similarity = np.dot(query_emb, doc_embedding) / (
                 np.linalg.norm(query_emb) * np.linalg.norm(doc_embedding)
             )
@@ -184,23 +141,8 @@ class SessionRAG:
             similarity_scores={r.id: score for r, score in top_results}
         )
     
-    def filter_cached(
-        self, 
-        session_id: str, 
-        budget_max: Optional[int] = None,
-        budget_min: Optional[int] = None,
-        min_rating: Optional[float] = None,
-        cuisines: Optional[List[str]] = None,
-        dietary: Optional[List[str]] = None,
-        online_order: Optional[bool] = None,
-        book_table: Optional[bool] = None
-    ) -> RAGSearchResult:
-        """
-        Filter cached restaurants in-memory (instant!).
+    def filter_cached(self, session_id: str, budget_max: Optional[int] = None, budget_min: Optional[int] = None, min_rating: Optional[float] = None, cuisines: Optional[List[str]] = None, dietary: Optional[List[str]] = None, online_order: Optional[bool] = None,book_table: Optional[bool] = None) -> RAGSearchResult:
         
-        This is the key optimization for refinement queries.
-        No database hit needed.
-        """
         if session_id not in self._session_restaurants:
             return RAGSearchResult(
                 restaurants=[],
@@ -255,7 +197,6 @@ class SessionRAG:
         )
     
     def get_by_id(self, session_id: str, restaurant_id: int) -> Optional[Restaurant]:
-        """Get a specific restaurant from session cache."""
         if session_id not in self._session_restaurants:
             return None
         
@@ -265,7 +206,6 @@ class SessionRAG:
         return None
     
     def get_by_name(self, session_id: str, name: str) -> Optional[Restaurant]:
-        """Get restaurant by name (fuzzy match)."""
         if session_id not in self._session_restaurants:
             return None
         
@@ -276,21 +216,17 @@ class SessionRAG:
         return None
     
     def get_by_position(self, session_id: str, position: int, last_results: List[Restaurant]) -> Optional[Restaurant]:
-        """Get restaurant by position in last results (1-indexed)."""
         if 1 <= position <= len(last_results):
             return last_results[position - 1]
         return None
     
     def get_all_cached(self, session_id: str) -> List[Restaurant]:
-        """Get all cached restaurants for a session."""
         return self._session_restaurants.get(session_id, [])
     
     def has_cache(self, session_id: str) -> bool:
-        """Check if session has cached restaurants."""
         return session_id in self._session_restaurants and len(self._session_restaurants[session_id]) > 0
     
     def clear_session(self, session_id: str):
-        """Clear session cache."""
         if session_id in self._session_restaurants:
             del self._session_restaurants[session_id]
         if session_id in self._session_embeddings:
@@ -298,7 +234,6 @@ class SessionRAG:
         print(f"  Cleared session cache: {session_id[:8]}")
     
     def get_session_stats(self, session_id: str) -> Dict:
-        """Get statistics for a session."""
         count = len(self._session_restaurants.get(session_id, []))
         has_embeddings = session_id in self._session_embeddings
         return {
@@ -310,12 +245,6 @@ class SessionRAG:
 
 # Test function
 def test_session_rag():
-    """Test the session RAG agent."""
-    print("\n" + "=" * 60)
-    print("TESTING SESSION RAG")
-    print("=" * 60)
-    
-    # Initialize
     rag = SessionRAG()
     rag.initialize()
     

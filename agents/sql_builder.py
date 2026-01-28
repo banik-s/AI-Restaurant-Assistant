@@ -1,7 +1,4 @@
-"""
-Agent 2: SQL Query Builder & Data Fetcher
-Translates user constraints into optimized SQL and fetches minimal data
-"""
+
 import sys
 import sqlite3
 import time
@@ -38,7 +35,6 @@ class SQLQueryBuilder:
         self._known_cuisines_lower: Dict[str, str] = {}
     
     def initialize(self):
-        """Initialize and load known values."""
         print(" Initializing SQL Query Builder...")
         
         if not self.db_path.exists():
@@ -47,20 +43,18 @@ class SQLQueryBuilder:
                 "Run: python pipelines/setup_database.py"
             )
         
-        self._load_known_values()
+        self.load_known_values()
         print(f"   Database: {self.db_path}")
         print(f"   Locations: {len(self._known_locations)}, Cuisines: {len(self._known_cuisines)}")
         return self
     
-    def _get_connection(self) -> sqlite3.Connection:
-        """Get database connection (thread-safe)."""
+    def get_connection(self) -> sqlite3.Connection:
         conn = sqlite3.connect(self.db_path, check_same_thread=False)
         conn.row_factory = sqlite3.Row
         return conn
     
-    def _load_known_values(self):
-        """Load known locations and cuisines for normalization."""
-        conn = self._get_connection()
+    def load_known_values(self):
+        conn = self.get_connection()
         cursor = conn.cursor()
         
         # Load locations
@@ -76,13 +70,11 @@ class SQLQueryBuilder:
         conn.close()
     
     def normalize_location(self, location: str) -> Optional[str]:
-        """Normalize location to canonical form."""
         if not location:
             return None
         
         location_lower = location.lower().strip()
         
-        # Exact match
         if location_lower in self._known_locations_lower:
             return self._known_locations_lower[location_lower]
         
@@ -91,7 +83,6 @@ class SQLQueryBuilder:
             if location_lower in known_lower or known_lower in location_lower:
                 return known
         
-        # Try fuzzy matching with rapidfuzz if available
         try:
             from rapidfuzz import process, fuzz
             result = process.extractOne(
@@ -125,17 +116,8 @@ class SQLQueryBuilder:
         
         return None
     
-    def build_query(
-        self, 
-        constraints: Constraints, 
-        limit: int = None
-    ) -> Tuple[str, List, Dict]:
-        """
-        Build optimized SQL query from constraints.
+    def build_query(self, constraints: Constraints, limit: int = None) -> Tuple[str, List, Dict]:
         
-        Returns:
-            Tuple of (sql_query, params, filters_applied)
-        """
         limit = limit or self.default_limit
         conditions = []
         params = []
@@ -202,13 +184,11 @@ class SQLQueryBuilder:
             params.append(constraints.budget_min)
             filters_applied['budget_min'] = constraints.budget_min
         
-        # Rating filter (default minimum)
         min_rating = constraints.min_rating or self.default_min_rating
         conditions.append("rating >= ?")
         params.append(min_rating)
         filters_applied['min_rating'] = min_rating
         
-        # Boolean filters
         if constraints.online_order is not None:
             conditions.append("online_order = ?")
             params.append(1 if constraints.online_order else 0)
@@ -253,19 +233,13 @@ class SQLQueryBuilder:
         return sql, params, filters_applied
     
     def execute(self, constraints: Constraints, limit: int = None) -> SQLQueryResult:
-        """
-        Execute query and return results.
-        
-        Returns:
-            SQLQueryResult with restaurants and metadata
-        """
         start_time = time.time()
         limit = limit or self.default_limit
         
         # Build and execute query
         sql, params, filters_applied = self.build_query(constraints, limit)
         
-        conn = self._get_connection()
+        conn = self.get_connection()
         cursor = conn.cursor()
         
         try:
@@ -307,16 +281,6 @@ class SQLQueryBuilder:
         )
     
     def execute_with_fallback(self, constraints: Constraints, limit: int = None) -> SQLQueryResult:
-        """
-        Execute query with smart fallbacks if no results.
-        
-        Fallback strategy:
-        1. Try exact query
-        2. If 0 results: relax cuisine filter
-        3. If still 0: relax location filter
-        4. If still 0: increase budget by 20%
-        """
-        # Try exact query first
         result = self.execute(constraints, limit)
         
         if result.count > 0:
@@ -363,7 +327,6 @@ class SQLQueryBuilder:
                 result.fallback_reason = f"No options under ₹{constraints.budget_max}, showing up to ₹{increased_budget}"
                 return result
         
-        # Final fallback: Just get top rated restaurants
         relaxed = Constraints(min_rating=3.5)
         result = self.execute(relaxed, limit)
         if result.count > 0:
@@ -374,7 +337,7 @@ class SQLQueryBuilder:
     
     def get_restaurant_by_id(self, restaurant_id: int) -> Optional[Restaurant]:
         """Get a single restaurant by ID."""
-        conn = self._get_connection()
+        conn = self.get_connection()
         cursor = conn.cursor()
         
         cursor.execute("""
@@ -415,10 +378,6 @@ class SQLQueryBuilder:
 
 # Test function
 def test_sql_builder():
-    """Test the SQL query builder."""
-    print("\n" + "=" * 60)
-    print("TESTING SQL QUERY BUILDER")
-    print("=" * 60)
     
     builder = SQLQueryBuilder()
     builder.initialize()
