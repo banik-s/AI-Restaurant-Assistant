@@ -1,14 +1,49 @@
-# AI-Restaurant-Assistant
+# AI-Powered Restaurant Discovery System
 
-AI Restaurant Assistant: Transforming Customer Experience Through Intelligent Multi-Agent Architecture
-The AI Restaurant Assistant revolutionizes dining discovery through multi-agent orchestration with Graph RAG architecture and specialized context engineering, transforming complex restaurant searches into intelligent, adaptive conversations that anticipate customer needs.
+An intelligent, conversational restaurant recommendation system for Bangalore that understands natural language queries and provides personalized, explainable recommendations using multi-agent AI architecture.
 
-Natural Language Processing enables customers to simply say "Find romantic Italian under ₹2000 in Koramangala" while the Intelligence Agent automatically enriches queries with contextual factors like time, weather, and dining patterns. Semantic embeddings powered by the Recommendation Agent understand nuanced preferences like "cozy ambiance" or "authentic flavors" through vector similarity matching.
+## Features
 
-Machine learning algorithms drive hyper-personalization through behavioral pattern recognition, with each agent continuously learning via reinforcement learning. The knowledge graph connects user preferences with restaurant features and real-time conditions, enabling transparent explanations like "Recommended because similar ambiance to your 5-star rated places."
+- ** Natural Language Understanding**: Ask in plain English - "Find romantic Italian restaurants in Koramangala under ₹1500"
+- ** Multi-Agent Architecture**: Specialized AI agents working together for accurate recommendations
+- ** Conversational AI**: Multi-turn dialogue with context awareness - refine, compare, and ask follow-ups
+- ** Intelligent Ranking**: Sentiment analysis + aspect-based scoring + intent alignment
+- ** Explainable Recommendations**: Every suggestion backed by review analysis and reasoning
+- ** Fast & Efficient**: Session-scoped indexing and smart caching for instant responses
+- ** Occasion-Aware**: Understands context like anniversaries, business meetings, casual hangouts
 
-The Action Agent provides critical real-time traffic intelligence and ETA calculations using Google Maps API integration, ensuring customers know exactly when they'll arrive. API orchestration across traffic systems delivers live route optimization and alternative path suggestions based on current conditions.
+##  Architecture
 
-This three-agent collaboration - Intelligence Agent (query understanding), Recommendation Agent (restaurant matching), and Action Agent (traffic & ETA) - reduces discovery time by 80% (15→3 minutes) through intelligent curation while providing traffic-aware travel planning. Continuous learning improves recommendations over time, while contextual adaptation delivers different suggestions based on traffic patterns, weather, and dining occasions.
+### Multi-Agent System
 
-This transforms restaurant selection from manual research into an intelligent, multi-agent conversation that combines personalized recommendations with actionable travel intelligence, creating a seamless discovery-to-arrival experience.
+**Agent 1: Conversational Orchestrator**
+- Manages conversation flow and context
+- Classifies user intent (new search, refinement, comparison)
+- Routes queries intelligently to other agents
+- Learns user preferences across conversation
+
+**Agent 2: SQL Query Builder & Data Fetcher**
+- Translates natural language to optimized SQL
+- Fetches relevant restaurants from 51K+ database
+- Smart filtering with fallback strategies
+- Returns only necessary data (50-100 results)
+
+**Agent 3: Session-Scoped RAG Agent**
+- Creates temporary vector index from fetched results
+- Enables semantic search within current session
+- Handles refinements without database hits
+- Lightning-fast comparisons and follow-up queries
+
+**Agent 4: Ranking & Recommendation Engine**
+- Fine-tuned DistilBERT for sentiment analysis
+- Aspect-based scoring (food, service, ambiance, value)
+- Intent-aligned ranking with explainability
+- Generates natural language recommendations
+
+##  Quick Start
+
+### Prerequisites
+
+```bash
+Python 3.10+
+pip install -r requirements.txt
