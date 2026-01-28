@@ -47,3 +47,4 @@ An intelligent, conversational restaurant recommendation system for Bangalore th
 ```bash
 Python 3.10+
 pip install -r requirements.txt
+Add openai api key in settings file
